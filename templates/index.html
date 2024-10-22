@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>네이버 플레이스 실시간 체크</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="center-content d-flex justify-content-center align-items-center" style="height: 100vh;">
+        <div class="card p-4" style="width: 400px;">
+            <div class="text-center mb-4">
+                <h1 class="header-text">실시간 체크</h1>
+            </div>
+            <form id="rankForm">
+                <div class="mb-3">
+                    <label for="placeName" class="form-label">상호명</label>
+                    <input type="text" class="form-control" id="placeName" required>
+                </div>
+                <div class="mb-3">
+                    <label for="placeId" class="form-label">플레이스번호</label>
+                    <input type="text" class="form-control" id="placeId" required>
+                </div>
+                <div class="mb-3">
+                    <label for="keyword" class="form-label">키워드</label>
+                    <input type="text" class="form-control" id="keyword" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100" id="submitButton">조회하기</button>
+            </form>
+            <div id="result" class="mt-4"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('rankForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const placeName = document.getElementById('placeName').value;
+            const placeId = document.getElementById('placeId').value;
+            const keyword = document.getElementById('keyword').value;
+            const submitButton = document.getElementById('submitButton');
+
+            // 버튼 비활성화
+            submitButton.disabled = true;
+            submitButton.innerText = '조회 중...';
+
+            fetch('/check-rank', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ placeName, placeId, keyword })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = `순위: ${data.result}`;
+
+                // 버튼 다시 활성화
+                submitButton.disabled = false;
+                submitButton.innerText = '조회하기';
+            })
+            .catch(err => {
+                document.getElementById('result').innerHTML = '에러 발생!';
+
+                // 버튼 다시 활성화
+                submitButton.disabled = false;
+                submitButton.innerText = '조회하기';
+            });
+        });
+    </script>
+</body>
+</html>
