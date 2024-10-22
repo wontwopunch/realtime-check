@@ -62,7 +62,7 @@ def find_rank(keyword, target_place_id, target_place_name):
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--headless')  # 크롬을 헤드리스 모드로 실행
+    # options.add_argument('--headless')  # 크롬을 헤드리스 모드로 실행
     driver = webdriver.Chrome(service=service, options=options)
 
 
