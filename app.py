@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
@@ -62,9 +63,10 @@ def find_rank(keyword, target_place_id, target_place_name):
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    # options.add_argument('--headless')  # 크롬을 헤드리스 모드로 실행
-    driver = webdriver.Chrome(service=service, options=options)
+    # options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
 
+    driver = webdriver.Chrome(service=service, options=options)
 
     try:
         search_link = f"https://m.search.naver.com/search.naver?sm=mtp_hty.top&where=m&query={keyword}"
