@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -8,18 +8,50 @@ from selenium.common.exceptions import TimeoutException
 import os
 import time
 import re
+from dotenv import load_dotenv
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
 
-# 프로젝트 안의 webdriver 폴더에 있는 ChromeDriver 경로 설정
+load_dotenv()  # .env 파일 로드
+
+# .env 파일에 저장된 설정 값 불러오기
+VALID_USERNAME = os.getenv('VALID_USERNAME')
+VALID_PASSWORD = os.getenv('VALID_PASSWORD')
 WEBDRIVER_PATH = os.getenv('WEBDRIVER_PATH')
-
 DEBUG_MODE = os.getenv('DEBUG', 'False').lower() in ['true', '1', 't']
 
-# 기본 경로 '/'에서 index.html을 렌더링
+# 로그인 페이지 라우트
 @app.route('/')
-def index():
-    return render_template('index.html')
+def login_page():
+    return render_template('login.html')
+
+# 로그인 처리 라우트
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form['username']
+    password = request.form['password']
+
+    if username == VALID_USERNAME and password == VALID_PASSWORD:
+        session['user'] = username  # 세션에 사용자 정보 저장
+        return redirect(url_for('index_page'))  # 로그인 후 index.html로 이동
+    else:
+        flash('아이디 또는 비밀번호가 올바르지 않습니다.')
+        return render_template('login.html', error='아이디 또는 비밀번호가 잘못되었습니다.')
+
+# index.html로 이동하는 라우트
+@app.route('/index')
+def index_page():
+    if 'user' in session:
+        return render_template('index.html')  # 로그인 후 index.html 렌더링
+    else:
+        return redirect(url_for('login_page'))
+
+# 로그아웃 처리
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('login_page'))
 
 # Selenium을 사용하여 네이버 검색 결과에서 업체 ID 및 상호명을 크롤링하는 함수
 def find_rank(keyword, target_place_id, target_place_name):
@@ -27,7 +59,7 @@ def find_rank(keyword, target_place_id, target_place_name):
     service = Service(executable_path=WEBDRIVER_PATH)
     options = webdriver.ChromeOptions()
     options.add_argument('--ignore-certificate-errors')
-    driver = webdriver.Chrome(service=service, options=options)  # driver 변수를 이곳에서 초기화
+    driver = webdriver.Chrome(service=service, options=options)
 
     try:
         search_link = f"https://m.search.naver.com/search.naver?sm=mtp_hty.top&where=m&query={keyword}"
@@ -52,57 +84,42 @@ def find_rank(keyword, target_place_id, target_place_name):
                     print(f"리스트 항목에서 링크 찾기 오류: {e}")
                 rank += 1
 
-        # 2. 첫 번째 더보기 버튼 클릭 후 순위를 찾는 경우
-        try:
-            driver.execute_script("window.scrollBy(0, 400);")  # 400px 정도 아래로 스크롤
-            print("스크롤을 400px 내렸습니다.")
+        # 2. 첫 번째 더보기 버튼 처리
+        click_more_button(driver, "a.YORrF span.Jtn42")
+        print("첫 번째 더보기 버튼 클릭됨 (a.YORrF span.Jtn42).")
+        time.sleep(5)
 
-            click_more_button(driver, "a.YORrF span.Jtn42")
-            print("첫 번째 더보기 버튼 클릭됨 (a.YORrF span.Jtn42).")
-            time.sleep(5)
+        list_items = driver.find_elements(By.CSS_SELECTOR,
+                                          "#place-main-section-root > div.place_section.Owktn > div.rdX0R.POx9H > ul > li")
+        rank = 1
+        for item in list_items:
+            try:
+                link = item.find_element(By.CSS_SELECTOR, "a")
+                href = link.get_attribute("href")
+                if place_id_str in href:
+                    print(f"{place_id_str}를 포함한 링크 발견: {href}, 현재 순위: {rank}")
+                    return rank  # 순위 반환
+            except Exception as e:
+                print(f"리스트 항목에서 링크 찾기 오류: {e}")
+            rank += 1
 
-            # 만약 첫 번째 선택자에서 버튼을 찾지 못하면 class="FtXwJ"로 시도
-            if not driver.find_elements(By.CSS_SELECTOR, "a.YORrF span.Jtn42"):
-                click_more_button(driver, "a.FtXwJ span.PNozS")
-                print("첫 번째 더보기 버튼 클릭됨 (a.FtXwJ span.PNozS).")
-                time.sleep(5)
+        # 3. 두 번째 더보기 버튼 처리
+        click_more_button(driver, "a.cf8PL")
+        print("두 번째 더보기 버튼 클릭됨.")
+        time.sleep(5)
 
-            list_items = driver.find_elements(By.CSS_SELECTOR,
-                                              "#place-main-section-root > div.place_section.Owktn > div.rdX0R.POx9H > ul > li")
-            rank = 1
-            for item in list_items:
-                try:
-                    link = item.find_element(By.CSS_SELECTOR, "a")
-                    href = link.get_attribute("href")
-                    if place_id_str in href:
-                        print(f"{place_id_str}를 포함한 링크 발견: {href}, 현재 순위: {rank}")
-                        return rank  # 순위 반환
-                except Exception as e:
-                    print(f"리스트 항목에서 링크 찾기 오류: {e}")
-                rank += 1
-        except Exception as e:
-            print(f"첫 번째 더보기 버튼 없음 또는 클릭 실패: {e}")
-
-        # 3. 두 번째 더보기 버튼 클릭 후 순위를 찾는 경우
-        try:
-            click_more_button(driver, "a.cf8PL")
-            print("두 번째 더보기 버튼 클릭됨.")
-            time.sleep(5)
-
-            list_items = driver.find_elements(By.CSS_SELECTOR, "#_list_scroll_container > div > div > div.place_business_list_wrapper > ul > li")
-            rank = 1
-            for item in list_items:
-                try:
-                    link = item.find_element(By.CSS_SELECTOR, "a")
-                    href = link.get_attribute("href")
-                    if place_id_str in href:
-                        print(f"{place_id_str}를 포함한 링크 발견: {href}, 현재 순위: {rank}")
-                        return rank  # 순위 반환
-                except Exception as e:
-                    print(f"리스트 항목에서 링크 찾기 오류: {e}")
-                rank += 1
-        except Exception as e:
-            print(f"두 번째 더보기 버튼 없음 또는 클릭 실패: {e}")
+        list_items = driver.find_elements(By.CSS_SELECTOR, "#_list_scroll_container > div > div > div.place_business_list_wrapper > ul > li")
+        rank = 1
+        for item in list_items:
+            try:
+                link = item.find_element(By.CSS_SELECTOR, "a")
+                href = link.get_attribute("href")
+                if place_id_str in href:
+                    print(f"{place_id_str}를 포함한 링크 발견: {href}, 현재 순위: {rank}")
+                    return rank  # 순위 반환
+            except Exception as e:
+                print(f"리스트 항목에서 링크 찾기 오류: {e}")
+            rank += 1
 
         print(f"{keyword}에서 {target_place_id}의 순위를 찾을 수 없습니다.")
         return None
@@ -114,27 +131,25 @@ def find_rank(keyword, target_place_id, target_place_name):
     finally:
         driver.quit()  # 크롤링이 끝난 후 브라우저 종료
 
-
 # 더보기 버튼 클릭 함수
 def click_more_button(driver, css_selector, timeout=30):
     try:
         # 스크롤하면서 버튼을 찾음
         last_height = driver.execute_script("return document.body.scrollHeight")
-        while True:
+        for _ in range(10):  # 최대 10번 시도 후 종료
             try:
                 more_element = WebDriverWait(driver, timeout).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, css_selector))
                 )
                 driver.execute_script("arguments[0].scrollIntoView(true);", more_element)
-                time.sleep(10)  # 스크롤 후 대기
+                time.sleep(5)
                 driver.execute_script("arguments[0].click();", more_element)
                 print(f"더보기 버튼 ({css_selector}) 클릭됨.")
-                time.sleep(10)  # 클릭 후 페이지 로딩 대기
+                time.sleep(5)
                 break  # 버튼을 찾고 클릭했다면 루프 종료
             except Exception as e:
-                # 페이지 스크롤을 내리면서 다시 시도
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(10)  # 스크롤 후 대기
+                time.sleep(5)
                 new_height = driver.execute_script("return document.body.scrollHeight")
                 if new_height == last_height:
                     print(f"더보기 버튼 ({css_selector})을 찾을 수 없습니다.")
@@ -151,12 +166,8 @@ def check_rank_route():
     target_place_id = data.get('placeId')
     target_place_name = data.get('placeName')  # 상호명 추가
 
-    # 네이버에서 검색 수행
     result = find_rank(keyword, target_place_id, target_place_name)
-
-    # 결과를 JSON으로 반환
     return jsonify({'result': result})
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0")
-    app.run(debug=DEBUG_MODE)
+    app.run(host="0.0.0.0", debug=DEBUG_MODE)
