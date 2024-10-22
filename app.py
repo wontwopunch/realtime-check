@@ -56,10 +56,16 @@ def logout():
 # Selenium을 사용하여 네이버 검색 결과에서 업체 ID 및 상호명을 크롤링하는 함수
 def find_rank(keyword, target_place_id, target_place_name):
     # Chrome WebDriver 설정
-    service = Service(executable_path=WEBDRIVER_PATH)
+    # service = Service(executable_path=WEBDRIVER_PATH)
+    service = Service('/home/ubuntu/rank/realtime-check/webdriver')
+
     options = webdriver.ChromeOptions()
     options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--headless')  # 크롬을 헤드리스 모드로 실행
     driver = webdriver.Chrome(service=service, options=options)
+
 
     try:
         search_link = f"https://m.search.naver.com/search.naver?sm=mtp_hty.top&where=m&query={keyword}"
