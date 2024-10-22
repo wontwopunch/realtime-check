@@ -12,7 +12,9 @@ import re
 app = Flask(__name__)
 
 # 프로젝트 안의 webdriver 폴더에 있는 ChromeDriver 경로 설정
-WEBDRIVER_PATH = os.path.join(os.getcwd(), 'webdriver', 'chromedriver.exe')
+WEBDRIVER_PATH = os.getenv('WEBDRIVER_PATH')
+
+DEBUG_MODE = os.getenv('DEBUG', 'False').lower() in ['true', '1', 't']
 
 # 기본 경로 '/'에서 index.html을 렌더링
 @app.route('/')
@@ -156,4 +158,5 @@ def check_rank_route():
     return jsonify({'result': result})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0")
+    app.run(debug=DEBUG_MODE)
