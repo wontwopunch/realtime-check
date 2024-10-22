@@ -65,6 +65,7 @@ def find_rank(keyword, target_place_id, target_place_name):
     options.add_argument('--disable-dev-shm-usage')
     # options.add_argument('--headless')
     options.add_argument('--disable-gpu')
+    options.add_argument('--remote-debugging-port=9222')
 
     driver = webdriver.Chrome(service=service, options=options)
 
